@@ -9,6 +9,7 @@ const server = new Server({
 });
 
 export type Context = InferContext<Server>;
+export const useCtx = server.ctx();
 
 export default {
 	port: 3000,
