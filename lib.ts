@@ -1,49 +1,45 @@
-import { createRouter, toRouteMatcher } from "radix3";
+type Route<TContext> = {
+	GET?: (ctx: TContext) => Promise<Response>;
+	POST?: (ctx: TContext) => Promise<Response>;
+	PUT?: (ctx: TContext) => Promise<Response>;
+	DELETE?: (ctx: TContext) => Promise<Response>;
+};
 
-export class Server<TContext extends Record<string, unknown> = {}> {
+export type InferContext<T extends Server> = T extends Server<infer C>
+	? C
+	: never;
+
+export class Server<
+	TContext extends Record<string, unknown> = {
+		request: Request;
+	},
+> {
 	private router;
-	private createContext;
+	private createContext: (req: Request) => TContext;
 
-	constructor(options?: {
-		createContext?: (req: Request) => TContext;
+	constructor(options: {
+		createContext: (req: Request) => TContext;
+		pagesDirectory?: string;
 	}) {
-		this.router = createRouter();
-		this.createContext =
-			options?.createContext ||
-			((req) => {
-				return {
-					request: req,
-				};
-			});
-	}
-
-	get(path: string, handler: (ctx: TContext) => Response) {
-		this.router.insert(path, {
-			method: "GET",
-			handler,
+		this.router = new Bun.FileSystemRouter({
+			dir: options?.pagesDirectory ?? "./pages",
+			style: "nextjs",
 		});
+		this.createContext = options?.createContext;
 	}
 
-	post(path: string, handler: (ctx: TContext) => Response) {
-		this.router.insert(path, {
-			method: "POST",
-			handler,
-		});
-	}
-
-	fetch(req: Request): Promise<Response> {
+	async fetch(req: Request): Promise<Response> {
 		const ctx = this.createContext(req);
-		const url = new URL(req.url);
-		const routeMatcher = toRouteMatcher(this.router);
-		const matches = routeMatcher.matchAll(url.pathname);
+		const matched = this.router.match(req);
 
-		if (!matches.length) {
+		if (!matched) {
 			throw new Error("No matching route");
 		}
-		for (const match of matches) {
-			if (match.method === req.method) {
-				return match.handler(ctx);
-			}
+		const imported = (await import(matched.filePath)) as Route<TContext>;
+		const method = req.method as keyof Route<TContext>;
+		if (method in imported) {
+			const handler = imported[method];
+			if (handler) return handler(ctx);
 		}
 		throw new Error("Method not allowed");
 	}

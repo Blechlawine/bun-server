@@ -1,4 +1,4 @@
-import { Server } from "./lib";
+import { type InferContext, Server } from "./lib";
 
 const server = new Server({
 	createContext: (req) => {
@@ -8,9 +8,7 @@ const server = new Server({
 	},
 });
 
-server.post("/", (ctx) => {
-	return new Response("Hello World", { status: 200 });
-});
+export type Context = InferContext<Server>;
 
 export default {
 	port: 3000,
