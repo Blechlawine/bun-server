@@ -41,7 +41,7 @@ export class FileBasedRouter<TContext> implements Router<TContext> {
 		throw new Error(`Method not allowed: ${req.method} on ${req.url}`);
 	}
 
-	mount(route: string, router: Router<TContext>): void {
+	mount(router: Router<TContext>): void {
 		throw new Error("Method not implemented.");
 	}
 }
@@ -68,7 +68,7 @@ export class RadixRouter<TContext> implements Router<TContext> {
 		throw new Error(`Method not allowed: ${req.method} on ${req.url}`);
 	}
 
-	mount(route: string, router: Router<TContext>): void {
+	mount(router: Router<TContext>): void {
 		throw new Error("Method not implemented.");
 	}
 }
