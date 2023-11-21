@@ -1,16 +1,30 @@
-import { IntoResponse } from ".";
-
-export interface ResponseParser {
-	parse(data: IntoResponse): Response;
+export abstract class IntoResponse {
+	abstract intoResponse(): Response;
 }
 
-export class JsonResponse implements ResponseParser {
-	parse(data: IntoResponse): Response {
-		if (data instanceof Response) return data;
-		if (typeof data === "string") return new Response(data);
-		return new Response(JSON.stringify(data), {
+export class Json<TData> extends IntoResponse {
+	constructor(private data: TData) {
+		super();
+	}
+
+	intoResponse(): Response {
+		return new Response(JSON.stringify(this.data), {
 			headers: {
 				"content-type": "application/json",
+			},
+		});
+	}
+}
+
+export class HTML extends IntoResponse {
+	constructor(private html: string) {
+		super();
+	}
+
+	intoResponse(): Response {
+		return new Response(this.html, {
+			headers: {
+				"content-type": "text/html",
 			},
 		});
 	}
