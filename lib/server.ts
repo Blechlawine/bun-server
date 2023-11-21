@@ -12,11 +12,7 @@ const context = createContext({
 });
 const useCtx = context.use;
 
-export class Server<
-	TContext extends Record<string, unknown> = {
-		request: Request;
-	},
-> {
+export class Server<TContext extends Record<string, unknown>> {
 	private router;
 	private responseParser;
 	private handlerWrapper;
@@ -45,14 +41,9 @@ export class Server<
 
 	async error(err: Error): Promise<Response> {
 		if (!this.errorHandler) throw err;
-		const result = this.errorHandler(err);
-		if (result instanceof Response) return result;
-		if (typeof result === "string") return new Response(result);
-		return new Response(JSON.stringify(result), {
-			headers: {
-				"content-type": "application/json",
-			},
-		});
+		const result = await this.errorHandler(err);
+		const parsed = this.responseParser.parse(result);
+		return parsed;
 	}
 
 	async fetch(req: Request): Promise<Response> {
@@ -66,16 +57,16 @@ export class Server<
 
 		return parsedResponse;
 	}
-}
 
-export function intoBunServer(server: Server, port?: number): Serve {
-	return {
-		port,
-		fetch(req: Request) {
-			return server.fetch(req);
-		},
-		error(err: Error) {
-			return server.error(err);
-		},
-	};
+	public intoBunServer(port?: number): Serve {
+		return {
+			port,
+			fetch: (req: Request) => {
+				return this.fetch(req);
+			},
+			error: (err: Error) => {
+				return this.error(err);
+			},
+		};
+	}
 }

@@ -1,14 +1,15 @@
-import { type InferContext, Server, intoBunServer, RadixRouter } from "./lib";
+import { type InferContext, Server, RadixRouter } from "./lib";
 
 const router = new RadixRouter();
-const server = new Server({
-	createContext: (req) => {
-		return {
-			request: req,
-		};
-	},
+
+function createContext(req: Request) {
+	return {
+		request: req,
+	};
+}
+const server = new Server<ReturnType<typeof createContext>>({
+	createContext,
 	error: (err) => {
-		console.log("EROOROROROORORORORO", err);
 		return {
 			message: err.message,
 		};
@@ -16,7 +17,7 @@ const server = new Server({
 	router,
 });
 
-export type Context = InferContext<Server>;
+export type Context = InferContext<typeof server>;
 export const useCtx = server.ctx();
 
-export default intoBunServer(server);
+export default server.intoBunServer(3000);
