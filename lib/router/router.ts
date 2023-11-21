@@ -131,6 +131,7 @@ export class Handler<
 
     async execute(ctx: TContext & { req: Request }) {
         const body = this.bodyParser?.(ctx.req.body);
+        // TODO: fix this type error
         const query = this.queryParser?.(ctx.req.query);
         const params = this.paramsParser?.(ctx.req.params);
         const headers = this.headerParser?.(ctx.req.headers);
