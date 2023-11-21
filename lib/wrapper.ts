@@ -1,16 +1,16 @@
 import { UseContext } from "unctx";
-import { Handler } from ".";
+import { TransformerFunction } from "./types";
 
-export interface HandlerWrapper<TContext> {
-	wrap(handler: Handler<TContext>): Handler<TContext>;
+export interface HandlerWrapper<TInput = any, TOutput = any> {
+    wrap(fn: TransformerFunction<TInput, TOutput>): TransformerFunction<TInput, TOutput>;
 }
 
-export class UnCtxHandlerWrapper<TContext> implements HandlerWrapper<TContext> {
-	constructor(private context: UseContext<TContext>) {}
+export class UnCtxHandlerWrapper<TInput, TOutput> implements HandlerWrapper<TInput, TOutput> {
+    constructor(private context: UseContext<TInput>) {}
 
-	wrap(handler: Handler<TContext>): Handler<TContext> {
-		return (ctx: TContext) => {
-			return this.context.call(ctx, () => handler(ctx));
-		};
-	}
+    wrap(fn: TransformerFunction<TInput, TOutput>): TransformerFunction<TInput, TOutput> {
+        return (ctx: TInput) => {
+            return this.context.call(ctx, () => fn(ctx));
+        };
+    }
 }

@@ -1,0 +1,23 @@
+{
+    "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+    "formatter": {
+        "indentWidth": 4,
+        "indentStyle": "space",
+        "lineWidth": 100,
+        "formatWithErrors": true,
+        "ignore": [".pnp.cjs"]
+    },
+    "linter": {
+        "rules": {
+            "a11y": {
+                "useKeyWithClickEvents": "off"
+            },
+            "suspicious": {
+                "noExplicitAny": "off"
+            }
+        }
+    },
+    "organizeImports": {
+        "enabled": true
+    }
+}

@@ -7,74 +7,75 @@ import { IntoResponse, Json } from "./response";
 import { HandlerWrapper, UnCtxHandlerWrapper } from "./wrapper";
 
 const context = createContext({
-	asyncContext: true,
-	AsyncLocalStorage,
+    asyncContext: true,
+    AsyncLocalStorage,
 });
 const useCtx = context.use;
 
 export class Server<TContext extends Record<string, unknown>> {
-	private router;
-	private handlerWrapper;
-	private createContext: (req: Request) => TContext;
-	private errorHandler?: (err: Error) => MaybePromise<PossibleResponse>;
+    private router;
+    private handlerWrapper;
+    private createContext?: (req: Request) => Omit<TContext, "req">;
+    private errorHandler?: (err: Error) => MaybePromise<PossibleResponse>;
 
-	constructor(options: {
-		createContext: (req: Request) => TContext;
-		error?: (err: Error) => MaybePromise<PossibleResponse>;
-		router: Router<TContext>;
-		handlerWrapper?: HandlerWrapper<TContext>;
-		routesDirectory?: string;
-	}) {
-		this.router = options.router;
-		this.handlerWrapper =
-			options.handlerWrapper ?? new UnCtxHandlerWrapper(context);
-		this.errorHandler = options?.error;
-		this.createContext = options?.createContext;
-	}
+    constructor(options: {
+        createContext?: (req: Request) => Omit<TContext, "req">;
+        error?: (err: Error) => MaybePromise<PossibleResponse>;
+        router: Router<TContext>;
+        handlerWrapper?: HandlerWrapper<TContext>;
+        routesDirectory?: string;
+    }) {
+        this.router = options.router;
+        this.handlerWrapper = options.handlerWrapper ?? new UnCtxHandlerWrapper(context);
+        this.errorHandler = options?.error;
+        this.createContext = options?.createContext;
+    }
 
-	public ctx() {
-		return useCtx as () => TContext;
-	}
+    public ctx() {
+        return useCtx as () => TContext;
+    }
 
-	async error(err: Error): Promise<Response> {
-		if (!this.errorHandler) throw err;
-		const result = await this.errorHandler(err);
-		const parsed = this.parseResponse(result);
-		return parsed;
-	}
+    async error(err: Error): Promise<Response> {
+        if (!this.errorHandler) throw err;
+        const result = await this.errorHandler(err);
+        const parsed = this.parseResponse(result);
+        return parsed;
+    }
 
-	async fetch(req: Request): Promise<Response> {
-		const ctx = this.createContext(req);
+    async fetch(req: Request): Promise<Response> {
+        const handler = await this.router.match(req);
 
-		const handler = await this.router.match(req);
+        const ctx = this.createContext?.(req);
 
-		const response = await this.handlerWrapper.wrap(handler)(ctx);
+        const executor = this.handlerWrapper.wrap(handler.execute);
 
-		const parsedResponse = this.parseResponse(response);
+        const response = await executor({ ...ctx, req });
 
-		return parsedResponse;
-	}
+        const parsedResponse = this.parseResponse(response);
 
-	private parseResponse(response: PossibleResponse): Response {
-		if (response instanceof Response) {
-			return response;
-		} else if (response instanceof IntoResponse) {
-			return response.intoResponse();
-		} else if (typeof response === "string") {
-			return new Response(response);
-		}
-		return new Json(response).intoResponse();
-	}
+        return parsedResponse;
+    }
 
-	public intoBunServer(port?: number): Serve {
-		return {
-			port,
-			fetch: (req: Request) => {
-				return this.fetch(req);
-			},
-			error: (err: Error) => {
-				return this.error(err);
-			},
-		};
-	}
+    private parseResponse(response: PossibleResponse): Response {
+        if (response instanceof Response) {
+            return response;
+        } else if (response instanceof IntoResponse) {
+            return response.intoResponse();
+        } else if (typeof response === "string") {
+            return new Response(response);
+        }
+        return new Json(response).intoResponse();
+    }
+
+    public intoBunServer(port?: number): Serve {
+        return {
+            port,
+            fetch: (req: Request) => {
+                return this.fetch(req);
+            },
+            error: (err: Error) => {
+                return this.error(err);
+            },
+        };
+    }
 }
