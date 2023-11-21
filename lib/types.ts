@@ -12,7 +12,7 @@ export type Route<TContext> =
 			default?: (ctx: TContext) => Promise<IntoResponse>;
 	  };
 
-export type InferContext<T extends Server> = T extends Server<infer C>
+export type InferContext<T extends Server<any>> = T extends Server<infer C>
 	? C
 	: never;
 

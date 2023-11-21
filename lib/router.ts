@@ -1,19 +1,28 @@
 import { createRouter, toRouteMatcher } from "radix3";
 import { Handler, Route } from "./types";
 
-export interface Router<TContext> {
-	match(req: Request): Promise<Handler<TContext>>;
+export abstract class Router<TContext> {
+	protected mountedRouters: Set<Router<TContext>> = new Set();
 
-	mount(router: Router<TContext>): void;
+	protected matchMountedRouters(req: Request) {
+		for (const r of this.mountedRouters) {
+			const matched = r.match(req);
+			if (matched) return matched;
+		}
+	}
+
+	abstract match(req: Request): Promise<Handler<TContext>>;
+	abstract mount(router: Router<TContext>): void;
 }
 
-export class FileBasedRouter<TContext> implements Router<TContext> {
+export class FileBasedRouter<TContext> extends Router<TContext> {
 	private router;
 
 	constructor(options?: {
 		dir?: string;
 		style?: "nextjs";
 	}) {
+		super();
 		this.router = new Bun.FileSystemRouter({
 			dir: options?.dir ?? "./pages",
 			style: options?.style ?? "nextjs",
@@ -23,6 +32,8 @@ export class FileBasedRouter<TContext> implements Router<TContext> {
 	async match(req: Request): Promise<Handler<TContext>> {
 		const matched = this.router.match(req);
 		if (!matched) {
+			const mountedMatch = this.matchMountedRouters(req);
+			if (mountedMatch) return mountedMatch;
 			throw new Error(`Not found ${req.method} ${req.url}`);
 		}
 		const imported = (await import(matched.filePath)) as Route<TContext>;
@@ -38,18 +49,21 @@ export class FileBasedRouter<TContext> implements Router<TContext> {
 			const handler = imported.default;
 			return handler;
 		}
+		const mountedMatch = this.matchMountedRouters(req);
+		if (mountedMatch) return mountedMatch;
 		throw new Error(`Method not allowed: ${req.method} on ${req.url}`);
 	}
 
 	mount(router: Router<TContext>): void {
-		throw new Error("Method not implemented.");
+		this.mountedRouters.add(router);
 	}
 }
 
-export class RadixRouter<TContext> implements Router<TContext> {
+export class RadixRouter<TContext> extends Router<TContext> {
 	private router;
 
 	constructor() {
+		super();
 		this.router = createRouter();
 	}
 
@@ -58,6 +72,8 @@ export class RadixRouter<TContext> implements Router<TContext> {
 		const routeMatcher = toRouteMatcher(this.router);
 		const matches = routeMatcher.matchAll(url.pathname);
 		if (!matches.length) {
+			const matched = this.matchMountedRouters(req);
+			if (matched) return matched;
 			throw new Error(`Not found ${req.method} ${req.url}`);
 		}
 		for (const match of matches) {
@@ -65,10 +81,12 @@ export class RadixRouter<TContext> implements Router<TContext> {
 				return match.handler;
 			}
 		}
+		const matched = this.matchMountedRouters(req);
+		if (matched) return matched;
 		throw new Error(`Method not allowed: ${req.method} on ${req.url}`);
 	}
 
 	mount(router: Router<TContext>): void {
-		throw new Error("Method not implemented.");
+		this.mountedRouters.add(router);
 	}
 }
